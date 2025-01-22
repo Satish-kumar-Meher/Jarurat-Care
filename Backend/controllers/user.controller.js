@@ -15,39 +15,41 @@ export const register = async (req, res) => {
   try {
     const { username, email, password, role } = req.body;
 
-    // Validate Request Body
+    // Validate Input
     if (!username || !email || !password || !role) {
       return errorResponse(res, "All fields are required", 400);
     }
 
-    // Check for Existing Email or Username
-    const [userEmail, userName] = await Promise.all([
-      User.findOne({ email }),
-      User.findOne({ username }),
-    ]);
+    // Use single query to check for existing username or email
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }],
+    }).lean();
 
-    if (userEmail) return errorResponse(res, "Email already exists", 409);
-    if (userName) return errorResponse(res, "Username already exists", 409);
+    if (existingUser) {
+      const message =
+        existingUser.email === email
+          ? "Email already exists"
+          : "Username already exists";
+      return errorResponse(res, message, 409);
+    }
 
     // Hash Password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create New User
-    const newUser = await User.create({
+    // Create and Save New User
+    const newUser = new User({
       username,
       email,
       password: hashedPassword,
       role: role || "user",
     });
 
-    if (newUser) {
-      return res.status(201).json({
-        success: true,
-        message: "User registered successfully!",
-      });
-    }
+    await newUser.save();
 
-    return errorResponse(res, "Failed to register user", 500);
+    return res.status(201).json({
+      success: true,
+      message: "User registered successfully!",
+    });
   } catch (error) {
     console.error("Error in register:", error);
     return errorResponse(res, "Server error. Please try again later.", 500);
@@ -59,13 +61,16 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate Request Body
+    // Validate Input
     if (!email || !password) {
       return errorResponse(res, "Email and password are required", 400);
     }
 
-    // Find User by Email
-    const user = await User.findOne({ email });
+    // Find User by Email (Select only necessary fields)
+    const user = await User.findOne({ email })
+      .select("password role username")
+      .lean();
+
     if (!user) return errorResponse(res, "Invalid email or password", 401);
 
     // Validate Password
