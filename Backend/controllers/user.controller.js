@@ -2,115 +2,97 @@ import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+// Utility Function for Error Response
+const errorResponse = (res, message, status = 400) => {
+  return res.status(status).json({
+    success: false,
+    message,
+  });
+};
 
 // Register Function
 export const register = async (req, res) => {
-    try {
-        const { username, email, password, role } = req.body;
-        console.log(req.body)
-        if (!username || !email || !password || !role) {
-            return res.status(401).json({
-                message: "Something is missing, please check!",
-                success: false,
-            });
-        }
-        const userEmail = await User.findOne({ email});
-        if (userEmail) {
-            return res.status(401).json({
-                message: "Email already exist ,try different email",
-                success: false,
-            });
-        };
-        const userName = await User.findOne({username});
-        if (userName) {
-            return res.status(401).json({
-                message: "Username already exist ,try different username",
-                success: false,
-            });
-        };
-        const hashedPassword = await bcrypt.hash(password, 10);
+  try {
+    const { username, email, password, role } = req.body;
 
-           //create a new user and save in database
-    const newlyCreatedUser = new User({
-        username,
-        email,
-        password: hashedPassword,
-        role : role || "user",
-      });
-  
-      await newlyCreatedUser.save();
-  
-      if (newlyCreatedUser) {
-        res.status(201).json({
-          success: true,
-          message: "User registered successfully!",
-        });
-      } else {
-        res.status(400).json({
-          success: false,
-          message: "Unable to register user! please try again.",
-        });
-      }
-    } catch (error) {
-        console.log(error);
-        return res.status(500).json({
-            message: "Some server error occured! Please try again",
-            success: false,
-        });
-
+    // Validate Request Body
+    if (!username || !email || !password || !role) {
+      return errorResponse(res, "All fields are required", 400);
     }
-}
 
+    // Check for Existing Email or Username
+    const [userEmail, userName] = await Promise.all([
+      User.findOne({ email }),
+      User.findOne({ username }),
+    ]);
+
+    if (userEmail) return errorResponse(res, "Email already exists", 409);
+    if (userName) return errorResponse(res, "Username already exists", 409);
+
+    // Hash Password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create New User
+    const newUser = await User.create({
+      username,
+      email,
+      password: hashedPassword,
+      role: role || "user",
+    });
+
+    if (newUser) {
+      return res.status(201).json({
+        success: true,
+        message: "User registered successfully!",
+      });
+    }
+
+    return errorResponse(res, "Failed to register user", 500);
+  } catch (error) {
+    console.error("Error in register:", error);
+    return errorResponse(res, "Server error. Please try again later.", 500);
+  }
+};
 
 // Login Function
-
 export const login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(401).json({
-                message: "Something is missing, please check!",
-                success: false,
-            });
-        }
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(401).json({
-                message: "Incorrect email or password",
-                success: false,
-            });
-        }
-        const isPasswordMatch = await bcrypt.compare(password, user.password);
-        if (!isPasswordMatch) {
-            return res.status(401).json({
-                message: "Incorrect password",
-                success: false,
-            });
-        };
+  try {
+    const { email, password } = req.body;
 
+    // Validate Request Body
+    if (!email || !password) {
+      return errorResponse(res, "Email and password are required", 400);
+    }
+
+    // Find User by Email
+    const user = await User.findOne({ email });
+    if (!user) return errorResponse(res, "Invalid email or password", 401);
+
+    // Validate Password
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
+    if (!isPasswordMatch) {
+      return errorResponse(res, "Invalid email or password", 401);
+    }
+
+    // Generate JWT Token
     const accessToken = jwt.sign(
-        {
-          userId: user._id,
-          username: user.username,
-          role: user.role,
-        },
-        process.env.JWT_SECRET_KEY,
-        {
-          expiresIn: "30m",
-        }
-      );
-  
-      res.status(200).json({
-        success: true,
-        message: "Logged in successful",
-        accessToken,
-      });
+      {
+        userId: user._id,
+        username: user.username,
+        role: user.role,
+      },
+      process.env.JWT_SECRET_KEY,
+      { expiresIn: "30m" }
+    );
 
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({
-          success: false,
-          message: "Some error occured! Please try again",
-        });
-}
-}
+    // Successful Login Response
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      accessToken,
+    });
+  } catch (error) {
+    console.error("Error in login:", error);
+    return errorResponse(res, "Server error. Please try again later.", 500);
+  }
+};
