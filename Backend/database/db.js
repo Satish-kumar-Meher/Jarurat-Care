@@ -12,7 +12,7 @@ const connectDB = async () => {
       useNewUrlParser: true, // Prevents deprecated string parser warnings
       useUnifiedTopology: true, // Improves connection management
       serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds if unable to connect
-      maxPoolSize: 10, // Maintain up to 10 connections in the pool
+      maxPoolSize: 10, // Maintain up to 10 connections in  pool
     });
 
     console.log(`Connected to MongoDB: ${connection.connection.host}`);
