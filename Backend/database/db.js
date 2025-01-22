@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const URI = process.env.MONGODB_URI;
+const URI = process.env.MONGODB_URI || "mongodb+srv://satishmeher:Satish853DB@jc-cluster1.glfmr.mongodb.net/?retryWrites=true&w=majority&appName=jc-cluster1";
 
 const connectDB = async () => {
   try {
