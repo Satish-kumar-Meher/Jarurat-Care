@@ -21,17 +21,17 @@ export const register = async (req, res) => {
     }
 
     // Use single query to check for existing username or email
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
-    }).lean();
+    // const existingUser = await User.findOne({
+    //   $or: [{ email }, { username }],
+    // }).lean();
 
-    if (existingUser) {
-      const message =
-        existingUser.email === email
-          ? "Email already exists"
-          : "Username already exists";
-      return errorResponse(res, message, 409);
-    }
+    // if (existingUser) {
+    //   const message =
+    //     existingUser.email === email
+    //       ? "Email already exists"
+    //       : "Username already exists";
+    //   return errorResponse(res, message, 409);
+    // }
 
     // Hash Password
     const hashedPassword = await bcrypt.hash(password, 10);
